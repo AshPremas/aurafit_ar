@@ -4,7 +4,6 @@ import '../../main.dart';
 import '../../models/clothing_item.dart';
 import '../../services/wishlist_service.dart';
 
-/// TryOnScreen — Real camera feed with garment overlay.
 class TryOnScreen extends StatefulWidget {
   final ClothingItem item;
   final String selectedSize;
@@ -25,8 +24,14 @@ class _TryOnScreenState extends State<TryOnScreen> {
   bool _isCameraInitialized = false;
   bool _isLoading = true;
   bool _showOverlay = false;
-  int _selectedCameraIndex = 1; // Start with front camera
+  int _selectedCameraIndex = 1;
   String _statusMessage = 'Initializing camera...';
+
+  // ── Overlay Controls ───────────────────────────────────────────────────
+  double _overlayScale = 0.6;      // Zoom: 0.2 to 1.0
+  double _overlayOpacity = 0.85;   // Opacity: 0.3 to 1.0
+  Offset _overlayPosition = const Offset(0, 0); // Drag position
+  Offset _dragStart = Offset.zero;
 
   @override
   void initState() {
@@ -34,24 +39,19 @@ class _TryOnScreenState extends State<TryOnScreen> {
     _initCamera();
   }
 
-  // ── Initialize Camera ─────────────────────────────────────────────────────
   Future<void> _initCamera() async {
     try {
       _cameras = await availableCameras();
       if (_cameras.isEmpty) {
         setState(() {
-          _statusMessage = 'No camera found on device';
+          _statusMessage = 'No camera found';
           _isLoading = false;
         });
         return;
       }
-
-      // Use front camera by default (index 1)
-      // Fall back to rear camera (index 0) if front not available
       if (_selectedCameraIndex >= _cameras.length) {
         _selectedCameraIndex = 0;
       }
-
       await _startCamera(_selectedCameraIndex);
     } catch (e) {
       setState(() {
@@ -61,16 +61,12 @@ class _TryOnScreenState extends State<TryOnScreen> {
     }
   }
 
-  // ── Start Camera ──────────────────────────────────────────────────────────
-  Future<void> _startCamera(int cameraIndex) async {
-    final camera = _cameras[cameraIndex];
-
+  Future<void> _startCamera(int index) async {
     _cameraController = CameraController(
-      camera,
+      _cameras[index],
       ResolutionPreset.high,
       enableAudio: false,
     );
-
     try {
       await _cameraController!.initialize();
       if (mounted) {
@@ -88,40 +84,35 @@ class _TryOnScreenState extends State<TryOnScreen> {
     }
   }
 
-  // ── Switch Camera ─────────────────────────────────────────────────────────
   Future<void> _switchCamera() async {
     if (_cameras.length < 2) return;
-
     setState(() => _isLoading = true);
     await _cameraController?.dispose();
-
     _selectedCameraIndex =
         (_selectedCameraIndex + 1) % _cameras.length;
-
     await _startCamera(_selectedCameraIndex);
   }
 
-  // ── Toggle Garment Overlay ────────────────────────────────────────────────
   void _toggleOverlay() {
     setState(() {
       _showOverlay = !_showOverlay;
+      // Reset position when toggling
+      _overlayPosition = const Offset(0, 0);
       _statusMessage = _showOverlay
-          ? 'Garment overlay active'
+          ? 'Drag to reposition • Use slider to resize'
           : 'Tap "Try-on" to overlay garment';
     });
   }
 
-  // ── Capture Screenshot ────────────────────────────────────────────────────
   Future<void> _captureScreenshot() async {
     if (_cameraController == null ||
         !_cameraController!.value.isInitialized) return;
-
     try {
       final image = await _cameraController!.takePicture();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Screenshot saved: ${image.path}'),
+            content: Text('Saved: ${image.path}'),
             backgroundColor: kAccentColor,
           ),
         );
@@ -129,7 +120,7 @@ class _TryOnScreenState extends State<TryOnScreen> {
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Screenshot failed: $e'),
+          content: Text('Failed: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -146,47 +137,64 @@ class _TryOnScreenState extends State<TryOnScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: _buildAppBar(),
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // ── Camera Feed ──────────────────────────────────────────────
+          // ── Camera Feed ────────────────────────────────────────────
           _buildCameraFeed(),
 
-          // ── Garment Overlay ──────────────────────────────────────────
+          // ── Draggable Garment Overlay ──────────────────────────────
           if (_showOverlay && _isCameraInitialized)
-            _buildGarmentOverlay(),
+            _buildDraggableOverlay(),
 
-          // ── Status Message ───────────────────────────────────────────
+          // ── Top Bar ────────────────────────────────────────────────
+          _buildTopBar(),
+
+          // ── Status Message ─────────────────────────────────────────
           _buildStatusOverlay(),
 
-          // ── Bottom Controls ──────────────────────────────────────────
+          // ── Bottom Controls ────────────────────────────────────────
           _buildBottomControls(),
         ],
       ),
     );
   }
 
-  // ── App Bar ───────────────────────────────────────────────────────────────
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: Colors.white),
-        onPressed: () => Navigator.pop(context),
-      ),
-      title: const Text(
-        'Try-on',
-        style: TextStyle(
-            color: Colors.white, fontWeight: FontWeight.bold),
-      ),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.close, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
+  // ── Top Bar ───────────────────────────────────────────────────────────────
+  Widget _buildTopBar() {
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+              horizontal: 8, vertical: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back,
+                    color: Colors.white),
+                onPressed: () => Navigator.pop(context),
+              ),
+              const Text(
+                'Try-on',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close,
+                    color: Colors.white),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
         ),
-      ],
+      ),
     );
   }
 
@@ -194,32 +202,49 @@ class _TryOnScreenState extends State<TryOnScreen> {
   Widget _buildCameraFeed() {
     if (_isLoading) {
       return const Center(
-        child: CircularProgressIndicator(color: kAccentColor),
+        child: CircularProgressIndicator(
+            color: kAccentColor),
       );
     }
-
     if (!_isCameraInitialized || _cameraController == null) {
       return Center(
-        child: Text(
-          _statusMessage,
-          style: const TextStyle(color: Colors.white),
-          textAlign: TextAlign.center,
-        ),
+        child: Text(_statusMessage,
+            style: const TextStyle(color: Colors.white),
+            textAlign: TextAlign.center),
       );
     }
-
     return CameraPreview(_cameraController!);
   }
 
-  // ── Garment Overlay ───────────────────────────────────────────────────────
-  Widget _buildGarmentOverlay() {
-    return Center(
-      child: Opacity(
-        opacity: 0.75,
-        child: Image.asset(
-          widget.item.arOverlayAsset,
-          width: MediaQuery.of(context).size.width * 0.6,
-          fit: BoxFit.contain,
+  // ── Draggable Garment Overlay ─────────────────────────────────────────────
+  Widget _buildDraggableOverlay() {
+    final screenSize = MediaQuery.of(context).size;
+    final centerX = screenSize.width / 2;
+    final centerY = screenSize.height / 2;
+
+    return Positioned(
+      left: centerX - (screenSize.width * _overlayScale / 2) +
+          _overlayPosition.dx,
+      top: centerY - (screenSize.width * _overlayScale / 2) +
+          _overlayPosition.dy,
+      child: GestureDetector(
+        // ── Drag to reposition ──────────────────────────────────────
+        onPanStart: (details) {
+          _dragStart = details.globalPosition - _overlayPosition;
+        },
+        onPanUpdate: (details) {
+          setState(() {
+            _overlayPosition =
+                details.globalPosition - _dragStart;
+          });
+        },
+        child: Opacity(
+          opacity: _overlayOpacity,
+          child: Image.asset(
+            widget.item.arOverlayAsset,
+            width: screenSize.width * _overlayScale,
+            fit: BoxFit.contain,
+          ),
         ),
       ),
     );
@@ -228,13 +253,13 @@ class _TryOnScreenState extends State<TryOnScreen> {
   // ── Status Overlay ────────────────────────────────────────────────────────
   Widget _buildStatusOverlay() {
     return Positioned(
-      top: 16,
+      top: 80,
       left: 0,
       right: 0,
       child: Center(
         child: Container(
           padding: const EdgeInsets.symmetric(
-              horizontal: 16, vertical: 8),
+              horizontal: 16, vertical: 6),
           decoration: BoxDecoration(
             color: Colors.black54,
             borderRadius: BorderRadius.circular(20),
@@ -242,7 +267,7 @@ class _TryOnScreenState extends State<TryOnScreen> {
           child: Text(
             _statusMessage,
             style: const TextStyle(
-                color: Colors.white, fontSize: 12),
+                color: Colors.white, fontSize: 11),
           ),
         ),
       ),
@@ -256,25 +281,70 @@ class _TryOnScreenState extends State<TryOnScreen> {
       left: 0,
       right: 0,
       child: Container(
-        padding: const EdgeInsets.symmetric(
-            horizontal: 24, vertical: 16),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
               Colors.transparent,
-              Colors.black.withOpacity(0.8)
+              Colors.black.withOpacity(0.9),
             ],
           ),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Try-on button
+
+            // ── Zoom Slider ──────────────────────────────────────────
+            if (_showOverlay) ...[
+              Row(
+                children: [
+                  const Icon(Icons.zoom_out,
+                      color: Colors.white70, size: 20),
+                  Expanded(
+                    child: Slider(
+                      value: _overlayScale,
+                      min: 0.2,
+                      max: 1.0,
+                      activeColor: kAccentColor,
+                      inactiveColor: Colors.white24,
+                      onChanged: (val) =>
+                          setState(() => _overlayScale = val),
+                    ),
+                  ),
+                  const Icon(Icons.zoom_in,
+                      color: Colors.white70, size: 20),
+                ],
+              ),
+
+              // ── Opacity Slider ─────────────────────────────────────
+              Row(
+                children: [
+                  const Icon(Icons.opacity,
+                      color: Colors.white70, size: 20),
+                  Expanded(
+                    child: Slider(
+                      value: _overlayOpacity,
+                      min: 0.3,
+                      max: 1.0,
+                      activeColor: kAccentColor,
+                      inactiveColor: Colors.white24,
+                      onChanged: (val) =>
+                          setState(() => _overlayOpacity = val),
+                    ),
+                  ),
+                  const Icon(Icons.brightness_high,
+                      color: Colors.white70, size: 20),
+                ],
+              ),
+              const SizedBox(height: 8),
+            ],
+
+            // ── Try-on Button ────────────────────────────────────────
             SizedBox(
               width: 160,
-              height: 50,
+              height: 48,
               child: ElevatedButton(
                 onPressed: _isCameraInitialized
                     ? _toggleOverlay
@@ -289,8 +359,9 @@ class _TryOnScreenState extends State<TryOnScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
-            // Control buttons row
+            const SizedBox(height: 10),
+
+            // ── Icon Buttons Row ─────────────────────────────────────
             Row(
               mainAxisAlignment:
                   MainAxisAlignment.spaceEvenly,
@@ -307,19 +378,26 @@ class _TryOnScreenState extends State<TryOnScreen> {
                     WishlistService.instance
                         .addItem(widget.item);
                     ScaffoldMessenger.of(context)
-                        .showSnackBar(
-                      SnackBar(
-                        content: Text(
-                            '${widget.item.name} saved!'),
-                        backgroundColor: kAccentColor,
-                      ),
-                    );
+                        .showSnackBar(SnackBar(
+                      content: Text(
+                          '${widget.item.name} saved!'),
+                      backgroundColor: kAccentColor,
+                    ));
                   },
                 ),
                 _ControlButton(
                   icon: Icons.switch_camera,
                   label: 'Switch',
                   onTap: _switchCamera,
+                ),
+                _ControlButton(
+                  icon: Icons.refresh,
+                  label: 'Reset',
+                  onTap: () => setState(() {
+                    _overlayPosition = const Offset(0, 0);
+                    _overlayScale = 0.6;
+                    _overlayOpacity = 0.85;
+                  }),
                 ),
               ],
             ),
@@ -330,7 +408,7 @@ class _TryOnScreenState extends State<TryOnScreen> {
   }
 }
 
-// ─── Control Button Widget ────────────────────────────────────────────────────
+// ─── Control Button ───────────────────────────────────────────────────────────
 class _ControlButton extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -350,21 +428,20 @@ class _ControlButton extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 52,
-            height: 52,
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
               color: Colors.white12,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon,
-                color: Colors.white, size: 26),
+                color: Colors.white, size: 24),
           ),
           const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(
-                color: Colors.white70, fontSize: 11),
-          ),
+          Text(label,
+              style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 10)),
         ],
       ),
     );
