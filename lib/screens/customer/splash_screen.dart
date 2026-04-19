@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import '../../main.dart';
+import 'login_screen.dart';
 
 /// SplashScreen — Displayed for 3 seconds on app launch.
 /// Uses [Future.delayed] for timed navigation to [HomeScreen].
@@ -34,7 +35,7 @@ class _SplashScreenState extends State<SplashScreen>
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted) {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
         );
       }
     });

@@ -163,4 +163,53 @@ class ApiService {
       return false;
     }
   }
+
+  //Customer Login
+  Future<Map<String, dynamic>?> customerLogin(
+      String email, String password) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/customer/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email, 'password': password}),
+      ).timeout(const Duration(seconds: 10));
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200 && data['success']) {
+        return data['data'];
+      }
+      return null;
+    } catch (e) {
+      print('Customer login error: $e');
+      return null;
+    }
+  }
+
+  //Customer Register
+  Future<Map<String, dynamic>?> customerRegister({
+    required String name,
+    required String email,
+    required String password,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/customer/register'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'name': name,
+          'email': email,
+          'password': password,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200 && data['success']) {
+        return data['data'];
+      }
+      return null;
+    } catch (e) {
+      print('Customer register error: $e');
+      return null;
+    }
+  }
 }

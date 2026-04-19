@@ -4,11 +4,20 @@ import '../../models/clothing_item.dart';
 import 'item_details_screen.dart';
 import 'wishlist_screen.dart';
 import '../../services/api_service.dart';
+import 'profile_screen.dart';
 
 /// HomeScreen — Main catalog screen with category tabs and product grid.
-/// Uses [DefaultTabController] for category-based filtering.
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final int customerId;
+final String customerName;
+final String customerEmail;
+
+const HomeScreen({
+  super.key,
+  required this.customerId,
+  required this.customerName,
+  required this.customerEmail,
+});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -176,26 +185,31 @@ class _HomeScreenState extends State<HomeScreen> {
 
   //Bottom Navigation Bar
   Widget _buildBottomNav(BuildContext context) {
-    return BottomNavigationBar(
-      backgroundColor: kCardBgColor,
-      selectedItemColor: kAccentColor,
-      unselectedItemColor: kTextSecondaryColor,
-      currentIndex: 0,
-      onTap: (idx) {
-        if (idx == 1) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const WishlistScreen()),
-          );
-        }
-      },
-      items: const [
-        BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-        BottomNavigationBarItem(icon: Icon(Icons.favorite), label: 'Wishlist'),
-        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-      ],
-    );
-  }
+  return BottomNavigationBar(
+    backgroundColor: kCardBgColor,
+    selectedItemColor: kAccentColor,
+    unselectedItemColor: kTextSecondaryColor,
+    currentIndex: 0,
+    onTap: (idx) {
+      if (idx == 1) {
+        Navigator.push(context,
+          MaterialPageRoute(builder: (_) => const WishlistScreen()));
+      } else if (idx == 2) {
+        Navigator.push(context,
+          MaterialPageRoute(builder: (_) => ProfileScreen(
+            customerId: widget.customerId,
+            customerName: widget.customerName,
+            customerEmail: widget.customerEmail,
+          )));
+      }
+    },
+    items: const [
+      BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+      BottomNavigationBarItem(icon: Icon(Icons.favorite), label: 'Wishlist'),
+      BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+    ],
+  );
+}
 }
 
 //Product Card Widget
