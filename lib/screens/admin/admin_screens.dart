@@ -340,7 +340,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
                 style: TextStyle(color: kTextPrimaryColor, fontWeight: FontWeight.w600)),
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
-              value: _selectedCategory,
+              initialValue: _selectedCategory,
               dropdownColor: kCardBgColor,
               style: const TextStyle(color: kTextPrimaryColor),
               decoration: InputDecoration(

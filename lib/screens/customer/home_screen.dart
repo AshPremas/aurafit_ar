@@ -198,12 +198,11 @@ class _ProductCard extends StatelessWidget {
                 borderRadius:
                     const BorderRadius.vertical(top: Radius.circular(12)),
                 child: Container(
-                  color: Colors.white10,
+                  color: Colors.white,
                   width: double.infinity,
-                  child: const Icon(
-                    Icons.checkroom,
-                    size: 60,
-                    color: kAccentColor,
+                  child: Image.asset(
+                    item.imageAsset,
+                    fit: BoxFit.contain,
                   ),
                 ),
               ),

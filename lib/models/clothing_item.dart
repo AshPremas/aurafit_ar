@@ -25,9 +25,7 @@ class ClothingItem {
   String get formattedPrice => 'LKR ${price.toStringAsFixed(2)}';
 }
 
-// ─── Mock Catalog Data ───────────────────────────────────────────────────────
-// In production this data is fetched from the PostgreSQL backend.
-// During PoC stage, mock data is used to simulate the catalog.
+// Mock Catalog Data (In production this data is fetched from the PostgreSQL backend.)
 
 final List<ClothingItem> mockClothingCatalog = [
   const ClothingItem(

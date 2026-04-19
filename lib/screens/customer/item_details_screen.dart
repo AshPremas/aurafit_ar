@@ -53,8 +53,9 @@ class _ItemDetailsScreenState extends State<ItemDetailsScreen> {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: const Center(
-                child: Icon(Icons.checkroom, size: 120, color: kAccentColor),
+              child: Image.asset(
+                item.imageAsset,
+                fit: BoxFit.contain,
               ),
             ),
             const SizedBox(height: 16),
