@@ -3,6 +3,7 @@ import '../../main.dart';
 import '../../models/clothing_item.dart';
 import 'item_details_screen.dart';
 import 'wishlist_screen.dart';
+import '../../services/api_service.dart';
 
 /// HomeScreen — Main catalog screen with category tabs and product grid.
 /// Uses [DefaultTabController] for category-based filtering.
@@ -18,6 +19,8 @@ class _HomeScreenState extends State<HomeScreen> {
   String _selectedCategory = 'All';
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  List<ClothingItem> _catalogItems = [];
+  bool _isLoadingItems = true;
 
   @override
   void dispose() {
@@ -25,11 +28,27 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  // ── Filtered catalog based on selected category and search query ──────────
+  @override
+  void initState() {
+    super.initState();
+      _searchController.clear();
+      _searchQuery = '';
+    _loadItems();
+  }
+
+  Future<void> _loadItems() async {
+    final items = await ApiService.instance.fetchItems();
+    setState(() {
+      _catalogItems = items;
+      _isLoadingItems = false;
+    });
+  }
+
+  //Filtered catalog based on selected category and search query
   List<ClothingItem> get _filteredItems {
-    return mockClothingCatalog.where((item) {
+    return  _catalogItems.where((item) {
       final matchesCategory =
-          _selectedCategory == 'All' || item.category == _selectedCategory;
+          _selectedCategory == 'All' || item.category.trim() == _selectedCategory.trim();
       final matchesSearch =
           item.name.toLowerCase().contains(_searchQuery.toLowerCase());
       return matchesCategory && matchesSearch;
@@ -52,7 +71,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ── AppBar ────────────────────────────────────────────────────────────────
+  //AppBar
   AppBar _buildAppBar() {
     return AppBar(
       backgroundColor: kPrimaryDarkColor,
@@ -71,7 +90,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ── Search Bar ────────────────────────────────────────────────────────────
+  //Search Bar
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -95,7 +114,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ── Category Chips ────────────────────────────────────────────────────────
+  //Category Chips
   Widget _buildCategoryChips() {
     return SizedBox(
       height: 44,
@@ -125,12 +144,19 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ── Product Grid ──────────────────────────────────────────────────────────
+  //Product Grid
   Widget _buildProductGrid() {
-    if (_filteredItems.isEmpty) {
-      return Center(
-        child: Text(
-          'No items found',
+  if (_isLoadingItems) {
+    return const Center(
+      child: CircularProgressIndicator(
+        color: kAccentColor,
+      ),
+    );
+  }
+  if (_filteredItems.isEmpty) {
+    return Center(
+      child: Text(
+        'No items found',
           style: TextStyle(color: kTextSecondaryColor),
         ),
       );
@@ -148,7 +174,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ── Bottom Navigation Bar ─────────────────────────────────────────────────
+  //Bottom Navigation Bar
   Widget _buildBottomNav(BuildContext context) {
     return BottomNavigationBar(
       backgroundColor: kCardBgColor,
@@ -172,7 +198,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// ─── Product Card Widget ─────────────────────────────────────────────────────
+//Product Card Widget
 class _ProductCard extends StatelessWidget {
   final ClothingItem item;
   const _ProductCard({required this.item});
