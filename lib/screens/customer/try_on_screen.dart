@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:camera/camera.dart';
 import '../../main.dart';
 import '../../models/clothing_item.dart';
-import '../../services/ar_service.dart';
 import '../../services/wishlist_service.dart';
 
-/// TryOnScreen — Core AR virtual fitting room screen.
+/// TryOnScreen — Real camera feed with garment overlay.
 class TryOnScreen extends StatefulWidget {
   final ClothingItem item;
   final String selectedSize;
@@ -20,51 +20,117 @@ class TryOnScreen extends StatefulWidget {
 }
 
 class _TryOnScreenState extends State<TryOnScreen> {
-  bool _isARActive = false;
-  bool _isProcessing = false;
-  String _statusMessage = 'Tap "Try-on" to start';
-  PoseLandmarks? _landmarks;
+  CameraController? _cameraController;
+  List<CameraDescription> _cameras = [];
+  bool _isCameraInitialized = false;
+  bool _isLoading = true;
+  bool _showOverlay = false;
+  int _selectedCameraIndex = 1; // Start with front camera
+  String _statusMessage = 'Initializing camera...';
 
-  //Activate AR and start pose detection 
-  Future<void> _startARSession() async {
-    setState(() {
-      _isProcessing = true;
-      _statusMessage = 'Initialising camera...';
-    });
+  @override
+  void initState() {
+    super.initState();
+    _initCamera();
+  }
 
-    // Request camera permission and initialise ARCore session
-    final bool cameraReady = await ARService.instance.initCamera();
-    if (!cameraReady) {
+  // ── Initialize Camera ─────────────────────────────────────────────────────
+  Future<void> _initCamera() async {
+    try {
+      _cameras = await availableCameras();
+      if (_cameras.isEmpty) {
+        setState(() {
+          _statusMessage = 'No camera found on device';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // Use front camera by default (index 1)
+      // Fall back to rear camera (index 0) if front not available
+      if (_selectedCameraIndex >= _cameras.length) {
+        _selectedCameraIndex = 0;
+      }
+
+      await _startCamera(_selectedCameraIndex);
+    } catch (e) {
       setState(() {
-        _isProcessing = false;
-        _statusMessage = 'Camera permission denied';
+        _statusMessage = 'Camera error: $e';
+        _isLoading = false;
       });
-      return;
     }
+  }
 
-    setState(() => _statusMessage = 'Detecting body landmarks...');
+  // ── Start Camera ──────────────────────────────────────────────────────────
+  Future<void> _startCamera(int cameraIndex) async {
+    final camera = _cameras[cameraIndex];
 
-    // Run MediaPipe Pose estimation and return detected landmarks
-    final landmarks = await ARService.instance.detectPoseLandmarks();
+    _cameraController = CameraController(
+      camera,
+      ResolutionPreset.high,
+      enableAudio: false,
+    );
 
+    try {
+      await _cameraController!.initialize();
+      if (mounted) {
+        setState(() {
+          _isCameraInitialized = true;
+          _isLoading = false;
+          _statusMessage = 'Tap "Try-on" to overlay garment';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _statusMessage = 'Failed to start camera: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
+  // ── Switch Camera ─────────────────────────────────────────────────────────
+  Future<void> _switchCamera() async {
+    if (_cameras.length < 2) return;
+
+    setState(() => _isLoading = true);
+    await _cameraController?.dispose();
+
+    _selectedCameraIndex =
+        (_selectedCameraIndex + 1) % _cameras.length;
+
+    await _startCamera(_selectedCameraIndex);
+  }
+
+  // ── Toggle Garment Overlay ────────────────────────────────────────────────
+  void _toggleOverlay() {
     setState(() {
-      _landmarks = landmarks;
-      _isARActive = true;
-      _isProcessing = false;
-      _statusMessage = landmarks != null
-          ? 'Body detected — overlay active'
-          : 'Could not detect body. Adjust position.';
+      _showOverlay = !_showOverlay;
+      _statusMessage = _showOverlay
+          ? 'Garment overlay active'
+          : 'Tap "Try-on" to overlay garment';
     });
   }
 
-  // ── Capture screenshot of the current AR frame ────────────────────────────
+  // ── Capture Screenshot ────────────────────────────────────────────────────
   Future<void> _captureScreenshot() async {
-    await ARService.instance.captureFrame();
-    if (mounted) {
+    if (_cameraController == null ||
+        !_cameraController!.value.isInitialized) return;
+
+    try {
+      final image = await _cameraController!.takePicture();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Screenshot saved: ${image.path}'),
+            backgroundColor: kAccentColor,
+          ),
+        );
+      }
+    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Screenshot saved to gallery'),
-          backgroundColor: kAccentColor,
+        SnackBar(
+          content: Text('Screenshot failed: $e'),
+          backgroundColor: Colors.red,
         ),
       );
     }
@@ -72,7 +138,7 @@ class _TryOnScreenState extends State<TryOnScreen> {
 
   @override
   void dispose() {
-    ARService.instance.disposeSession();
+    _cameraController?.dispose();
     super.dispose();
   }
 
@@ -80,21 +146,29 @@ class _TryOnScreenState extends State<TryOnScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: _buildTopBar(),
+      appBar: _buildAppBar(),
       body: Stack(
         fit: StackFit.expand,
         children: [
+          // ── Camera Feed ──────────────────────────────────────────────
           _buildCameraFeed(),
-          if (_isARActive && _landmarks != null) _buildGarmentOverlay(),
+
+          // ── Garment Overlay ──────────────────────────────────────────
+          if (_showOverlay && _isCameraInitialized)
+            _buildGarmentOverlay(),
+
+          // ── Status Message ───────────────────────────────────────────
           _buildStatusOverlay(),
+
+          // ── Bottom Controls ──────────────────────────────────────────
           _buildBottomControls(),
         ],
       ),
     );
   }
 
-  // ── Top Bar ───────────────────────────────────────────────────────────────
-  PreferredSizeWidget _buildTopBar() {
+  // ── App Bar ───────────────────────────────────────────────────────────────
+  PreferredSizeWidget _buildAppBar() {
     return AppBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
@@ -104,7 +178,8 @@ class _TryOnScreenState extends State<TryOnScreen> {
       ),
       title: const Text(
         'Try-on',
-        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        style: TextStyle(
+            color: Colors.white, fontWeight: FontWeight.bold),
       ),
       actions: [
         IconButton(
@@ -115,74 +190,42 @@ class _TryOnScreenState extends State<TryOnScreen> {
     );
   }
 
-  // ── Simulated Camera Feed ─────────────────────────────────────────────────
-  // In production: replaced by a CameraPreview widget fed by ARCore session.
+  // ── Camera Feed ───────────────────────────────────────────────────────────
   Widget _buildCameraFeed() {
-    return Container(
-      color: Colors.black87,
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              _isARActive ? Icons.camera_alt : Icons.camera_alt_outlined,
-              color: Colors.white54,
-              size: 80,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              _isARActive
-                  ? 'Camera Feed Active'
-                  : 'Virtual Try-On Feed\n(AR/Camera View)',
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white54, fontSize: 14),
-            ),
-          ],
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: kAccentColor),
+      );
+    }
+
+    if (!_isCameraInitialized || _cameraController == null) {
+      return Center(
+        child: Text(
+          _statusMessage,
+          style: const TextStyle(color: Colors.white),
+          textAlign: TextAlign.center,
         ),
-      ),
-    );
+      );
+    }
+
+    return CameraPreview(_cameraController!);
   }
 
   // ── Garment Overlay ───────────────────────────────────────────────────────
-  // Positioned and scaled based on detected body landmarks.
-  // In production: ARCore positions the PNG precisely on the body.
   Widget _buildGarmentOverlay() {
     return Center(
       child: Opacity(
-        opacity: 0.85,
-        child: Container(
-          width: (_landmarks?.shoulderWidthPx ?? 200) * 1.4,
-          height: (_landmarks?.torsoHeightPx ?? 300) * 1.2,
-          decoration: BoxDecoration(
-            color: kAccentColor.withOpacity(0.2),
-            border: Border.all(color: kAccentColor, width: 1.5),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.checkroom, color: kAccentColor, size: 80),
-              const SizedBox(height: 8),
-              Text(
-                widget.item.name,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-              ),
-              Text(
-                'Size: ${widget.selectedSize}',
-                style: TextStyle(color: kTextSecondaryColor, fontSize: 12),
-              ),
-            ],
-          ),
+        opacity: 0.75,
+        child: Image.asset(
+          widget.item.arOverlayAsset,
+          width: MediaQuery.of(context).size.width * 0.6,
+          fit: BoxFit.contain,
         ),
       ),
     );
   }
 
-  // ── Status Message Overlay ────────────────────────────────────────────────
+  // ── Status Overlay ────────────────────────────────────────────────────────
   Widget _buildStatusOverlay() {
     return Positioned(
       top: 16,
@@ -190,86 +233,84 @@ class _TryOnScreenState extends State<TryOnScreen> {
       right: 0,
       child: Center(
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(
+              horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
             color: Colors.black54,
             borderRadius: BorderRadius.circular(20),
           ),
-          child: _isProcessing
-              ? Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor:
-                            AlwaysStoppedAnimation<Color>(kAccentColor),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(_statusMessage,
-                        style: const TextStyle(color: Colors.white, fontSize: 12)),
-                  ],
-                )
-              : Text(_statusMessage,
-                  style: const TextStyle(color: Colors.white, fontSize: 12)),
+          child: Text(
+            _statusMessage,
+            style: const TextStyle(
+                color: Colors.white, fontSize: 12),
+          ),
         ),
       ),
     );
   }
 
-  // ── Bottom Control Buttons ────────────────────────────────────────────────
+  // ── Bottom Controls ───────────────────────────────────────────────────────
   Widget _buildBottomControls() {
     return Positioned(
       bottom: 0,
       left: 0,
       right: 0,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        padding: const EdgeInsets.symmetric(
+            horizontal: 24, vertical: 16),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Colors.transparent, Colors.black.withOpacity(0.8)],
+            colors: [
+              Colors.transparent,
+              Colors.black.withOpacity(0.8)
+            ],
           ),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Try-on activation button
-            if (!_isARActive)
-              SizedBox(
-                width: 160,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: _isProcessing ? null : _startARSession,
-                  style: ElevatedButton.styleFrom(backgroundColor: kAccentColor),
-                  child: const Text(
-                    'Try-on',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
+            // Try-on button
+            SizedBox(
+              width: 160,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: _isCameraInitialized
+                    ? _toggleOverlay
+                    : null,
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: kAccentColor),
+                child: Text(
+                  _showOverlay ? 'Remove' : 'Try-on',
+                  style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold),
                 ),
               ),
+            ),
             const SizedBox(height: 12),
-            // Screenshot / Wishlist / Switch camera row
+            // Control buttons row
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              mainAxisAlignment:
+                  MainAxisAlignment.spaceEvenly,
               children: [
                 _ControlButton(
                   icon: Icons.camera_alt,
-                  label: 'Take\nScreenshot',
+                  label: 'Screenshot',
                   onTap: _captureScreenshot,
                 ),
                 _ControlButton(
                   icon: Icons.favorite,
-                  label: 'Save to\nWishlist',
+                  label: 'Wishlist',
                   onTap: () {
-                    WishlistService.instance.addItem(widget.item);
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    WishlistService.instance
+                        .addItem(widget.item);
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(
                       SnackBar(
-                        content: Text('${widget.item.name} saved to wishlist'),
+                        content: Text(
+                            '${widget.item.name} saved!'),
                         backgroundColor: kAccentColor,
                       ),
                     );
@@ -278,7 +319,7 @@ class _TryOnScreenState extends State<TryOnScreen> {
                 _ControlButton(
                   icon: Icons.switch_camera,
                   label: 'Switch',
-                  onTap: ARService.instance.switchCamera,
+                  onTap: _switchCamera,
                 ),
               ],
             ),
@@ -289,7 +330,7 @@ class _TryOnScreenState extends State<TryOnScreen> {
   }
 }
 
-// ─── Reusable Control Button ─────────────────────────────────────────────────
+// ─── Control Button Widget ────────────────────────────────────────────────────
 class _ControlButton extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -315,13 +356,14 @@ class _ControlButton extends StatelessWidget {
               color: Colors.white12,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: Colors.white, size: 26),
+            child: Icon(icon,
+                color: Colors.white, size: 26),
           ),
           const SizedBox(height: 4),
           Text(
             label,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.white70, fontSize: 11),
+            style: const TextStyle(
+                color: Colors.white70, fontSize: 11),
           ),
         ],
       ),
