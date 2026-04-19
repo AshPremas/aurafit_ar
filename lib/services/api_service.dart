@@ -147,6 +147,7 @@ class ApiService {
   Future<bool> addToWishlist(
       int customerId, int itemId) async {
     try {
+      print('Calling API: customerId=$customerId, itemId=$itemId');
       final response = await http.post(
         Uri.parse('$_baseUrl/wishlist'),
         headers: {'Content-Type': 'application/json'},
@@ -156,6 +157,8 @@ class ApiService {
         }),
       ).timeout(const Duration(seconds: 10));
 
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
       final data = jsonDecode(response.body);
       return data['success'] == true;
     } catch (e) {
@@ -210,6 +213,50 @@ class ApiService {
     } catch (e) {
       print('Customer register error: $e');
       return null;
+    }
+  }
+
+  //Fetch Wishlist
+  Future<List<ClothingItem>> fetchWishlist(int customerId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/wishlist/$customerId'),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final List items = data['data'];
+        return items.map((item) => ClothingItem(
+          id: item['item_id'],
+          name: item['name'],
+          price: double.parse(item['price'].toString()),
+          category: '',
+          description: '',
+          sizes: ['S', 'M', 'L', 'XL'],
+          imageAsset: item['image_url'] ?? 'assets/images/blackshirt.png',
+          arOverlayAsset: item['image_url'] ?? 'assets/images/blackshirt.png',
+          wishlistId: item['wishlist_id'],
+        )).toList();
+      }
+      return [];
+    } catch (e) {
+      print('Fetch wishlist error: $e');
+      return [];
+    }
+  }
+
+  //Remove from Wishlist
+  Future<bool> removeFromWishlist(int wishlistId) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$_baseUrl/wishlist/$wishlistId'),
+      ).timeout(const Duration(seconds: 10));
+
+      final data = jsonDecode(response.body);
+      return data['success'] == true;
+    } catch (e) {
+      print('Remove wishlist error: $e');
+      return false;
     }
   }
 }

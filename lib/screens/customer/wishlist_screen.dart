@@ -1,23 +1,37 @@
 import 'package:flutter/material.dart';
 import '../../main.dart';
 import '../../models/clothing_item.dart';
-import '../../services/wishlist_service.dart';
+import '../../services/api_service.dart';
 import 'try_on_screen.dart';
 
-/// WishlistScreen — Displays the customer's saved clothing items.
-/// Supports "Try Again" (re-launch AR) and "Delete" actions per item.
 class WishlistScreen extends StatefulWidget {
-  const WishlistScreen({super.key});
+  final int customerId;
+
+  const WishlistScreen({super.key, required this.customerId});
 
   @override
   State<WishlistScreen> createState() => _WishlistScreenState();
 }
 
 class _WishlistScreenState extends State<WishlistScreen> {
-  List<ClothingItem> get _items => WishlistService.instance.items;
+  List<ClothingItem> _items = [];
+  bool _isLoading = true;
 
-  void _removeItem(int itemId) {
-    setState(() => WishlistService.instance.removeItem(itemId));
+  @override
+  void initState() {
+    super.initState();
+    _loadWishlist();
+  }
+
+  Future<void> _loadWishlist() async {
+    setState(() => _isLoading = true);
+    final items = await ApiService.instance.fetchWishlist(widget.customerId);
+    setState(() { _items = items; _isLoading = false; });
+  }
+
+  Future<void> _removeItem(int wishlistId) async {
+    final success = await ApiService.instance.removeFromWishlist(wishlistId);
+    if (success) _loadWishlist();
   }
 
   @override
@@ -31,10 +45,9 @@ class _WishlistScreenState extends State<WishlistScreen> {
           icon: const Icon(Icons.arrow_back, color: kTextPrimaryColor),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'My Wishlist',
-          style: TextStyle(color: kTextPrimaryColor, fontWeight: FontWeight.bold),
-        ),
+        title: const Text('My Wishlist',
+            style: TextStyle(color: kTextPrimaryColor,
+                fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
             icon: const Icon(Icons.close, color: kTextPrimaryColor),
@@ -42,22 +55,24 @@ class _WishlistScreenState extends State<WishlistScreen> {
           )
         ],
       ),
-      body: _items.isEmpty
-          ? Center(
-              child: Text(
-                'Your wishlist is empty',
-                style: TextStyle(color: kTextSecondaryColor, fontSize: 16),
-              ),
-            )
-          : ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: _items.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (_, i) => _WishlistCard(
-                item: _items[i],
-                onRemove: () => _removeItem(_items[i].id),
-              ),
-            ),
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(color: kAccentColor))
+          : _items.isEmpty
+              ? Center(
+                  child: Text('Your wishlist is empty',
+                      style: TextStyle(color: kTextSecondaryColor,
+                          fontSize: 16)))
+              : ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _items.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (_, i) => _WishlistCard(
+                    item: _items[i],
+                    onRemove: () => _removeItem(_items[i].wishlistId ?? 0),
+                    customerId: widget.customerId,
+                  ),
+                ),
     );
   }
 }
@@ -65,26 +80,26 @@ class _WishlistScreenState extends State<WishlistScreen> {
 class _WishlistCard extends StatelessWidget {
   final ClothingItem item;
   final VoidCallback onRemove;
-  const _WishlistCard({required this.item, required this.onRemove});
+  final int customerId;
+  const _WishlistCard({required this.item, required this.onRemove, required this.customerId});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: kCardBgColor,
-        borderRadius: BorderRadius.circular(12),
-      ),
+          color: kCardBgColor, borderRadius: BorderRadius.circular(12)),
       padding: const EdgeInsets.all(12),
       child: Row(
         children: [
-          Container(
-            width: 70,
-            height: 70,
-            decoration: BoxDecoration(
-              color: Colors.white10,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(Icons.checkroom, color: kAccentColor, size: 36),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.asset(item.imageAsset,
+                width: 70, height: 70, fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  width: 70, height: 70, color: Colors.white10,
+                  child: const Icon(Icons.checkroom,
+                      color: kAccentColor, size: 36),
+                )),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -92,10 +107,11 @@ class _WishlistCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(item.name,
-                    style: const TextStyle(
-                        color: kTextPrimaryColor, fontWeight: FontWeight.bold)),
+                    style: const TextStyle(color: kTextPrimaryColor,
+                        fontWeight: FontWeight.bold)),
                 Text(item.formattedPrice,
-                    style: const TextStyle(color: kAccentColor, fontSize: 13)),
+                    style: const TextStyle(color: kAccentColor,
+                        fontSize: 13)),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -103,13 +119,9 @@ class _WishlistCard extends StatelessWidget {
                       label: 'Try Again',
                       icon: Icons.refresh,
                       color: kAccentColor,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              TryOnScreen(item: item, selectedSize: 'M'),
-                        ),
-                      ),
+                      onTap: () => Navigator.push(context,
+                          MaterialPageRoute(builder: (_) =>
+                              TryOnScreen(item: item, selectedSize: 'M', customerId: customerId))),
                     ),
                     const SizedBox(width: 8),
                     _ActionBtn(
@@ -134,11 +146,8 @@ class _ActionBtn extends StatelessWidget {
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
-  const _ActionBtn(
-      {required this.label,
-      required this.icon,
-      required this.color,
-      required this.onTap});
+  const _ActionBtn({required this.label, required this.icon,
+      required this.color, required this.onTap});
 
   @override
   Widget build(BuildContext context) {

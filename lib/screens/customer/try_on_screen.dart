@@ -3,15 +3,18 @@ import 'package:camera/camera.dart';
 import '../../main.dart';
 import '../../models/clothing_item.dart';
 import '../../services/wishlist_service.dart';
+import '../../services/api_service.dart';
 
 class TryOnScreen extends StatefulWidget {
   final ClothingItem item;
   final String selectedSize;
+  final int customerId;
 
   const TryOnScreen({
     super.key,
     required this.item,
     required this.selectedSize,
+    required this.customerId,
   });
 
   @override
@@ -374,14 +377,16 @@ class _TryOnScreenState extends State<TryOnScreen> {
                 _ControlButton(
                   icon: Icons.favorite,
                   label: 'Wishlist',
-                  onTap: () {
-                    WishlistService.instance
-                        .addItem(widget.item);
-                    ScaffoldMessenger.of(context)
-                        .showSnackBar(SnackBar(
-                      content: Text(
-                          '${widget.item.name} saved!'),
-                      backgroundColor: kAccentColor,
+                  onTap: () async {
+                    print('Adding to wishlist: customerId=${widget.customerId}, itemId=${widget.item.id}');
+                    final success = await ApiService.instance.addToWishlist(
+                      widget.customerId, widget.item.id);
+                    print('Wishlist result: $success');
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text(success
+                        ? '${widget.item.name} saved to wishlist!'
+                        : 'Already in wishlist or error'),
+                      backgroundColor: success ? kAccentColor : Colors.redAccent,
                     ));
                   },
                 ),

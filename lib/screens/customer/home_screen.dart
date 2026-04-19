@@ -179,7 +179,7 @@ class _HomeScreenState extends State<HomeScreen> {
         mainAxisSpacing: 12,
       ),
       itemCount: _filteredItems.length,
-      itemBuilder: (_, i) => _ProductCard(item: _filteredItems[i]),
+      itemBuilder: (_, i) => _ProductCard(item: _filteredItems[i], customerId: widget.customerId),
     );
   }
 
@@ -193,7 +193,8 @@ class _HomeScreenState extends State<HomeScreen> {
     onTap: (idx) {
       if (idx == 1) {
         Navigator.push(context,
-          MaterialPageRoute(builder: (_) => const WishlistScreen()));
+          MaterialPageRoute(builder: (_) => WishlistScreen(
+            customerId: widget.customerId)));
       } else if (idx == 2) {
         Navigator.push(context,
           MaterialPageRoute(builder: (_) => ProfileScreen(
@@ -215,14 +216,15 @@ class _HomeScreenState extends State<HomeScreen> {
 //Product Card Widget
 class _ProductCard extends StatelessWidget {
   final ClothingItem item;
-  const _ProductCard({required this.item});
+  final int customerId;
+  const _ProductCard({required this.item, required this.customerId});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => ItemDetailsScreen(item: item)),
+        MaterialPageRoute(builder: (_) => ItemDetailsScreen(item: item, customerId: customerId)),
       ),
       child: Container(
         decoration: BoxDecoration(

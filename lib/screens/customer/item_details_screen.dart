@@ -8,7 +8,12 @@ import 'try_on_screen.dart';
 /// Allows size selection, adding to wishlist, and launching the AR try-on.
 class ItemDetailsScreen extends StatefulWidget {
   final ClothingItem item;
-  const ItemDetailsScreen({super.key, required this.item});
+  final int customerId;
+  const ItemDetailsScreen({
+    super.key, 
+    required this.item,
+    required this.customerId,
+  });
 
   @override
   State<ItemDetailsScreen> createState() => _ItemDetailsScreenState();
@@ -139,6 +144,7 @@ class _ItemDetailsScreenState extends State<ItemDetailsScreen> {
                     builder: (_) => TryOnScreen(
                       item: item,
                       selectedSize: _selectedSize,
+                      customerId: widget.customerId,
                     ),
                   ),
                 ),

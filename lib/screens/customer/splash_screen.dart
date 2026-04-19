@@ -4,7 +4,6 @@ import '../../main.dart';
 import 'login_screen.dart';
 
 /// SplashScreen — Displayed for 3 seconds on app launch.
-/// Uses [Future.delayed] for timed navigation to [HomeScreen].
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 

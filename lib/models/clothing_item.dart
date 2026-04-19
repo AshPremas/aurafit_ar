@@ -7,8 +7,9 @@ class ClothingItem {
   final String category;
   final String description;
   final List<String> sizes;
-  final String imageAsset;   // Local asset path for the garment image
+  final String imageAsset;
   final String arOverlayAsset; // PNG with transparent bg used for AR overlay
+  final int? wishlistId;
 
   const ClothingItem({
     required this.id,
@@ -19,6 +20,7 @@ class ClothingItem {
     required this.sizes,
     required this.imageAsset,
     required this.arOverlayAsset,
+    this.wishlistId,
   });
 
   /// Formatted price string in Sri Lankan Rupees
