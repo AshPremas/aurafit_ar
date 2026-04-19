@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../main.dart';
 import '../../models/clothing_item.dart';
-import '../../services/wishlist_service.dart';
+import '../../services/api_service.dart';
 import 'try_on_screen.dart';
 
 /// ItemDetailsScreen — Displays full details of a selected [ClothingItem].
@@ -160,12 +160,15 @@ class _ItemDetailsScreenState extends State<ItemDetailsScreen> {
               width: double.infinity,
               height: 50,
               child: OutlinedButton(
-                onPressed: () {
-                  WishlistService.instance.addItem(item);
+                onPressed: () async {
+                  final success = await ApiService.instance.addToWishlist(
+                    widget.customerId, item.id);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('${item.name} added to wishlist'),
-                      backgroundColor: kAccentColor,
+                      content: Text(success
+                        ? '${item.name} added to wishlist!'
+                        : 'Already in wishlist or failed'),
+                      backgroundColor: success ? kAccentColor : Colors.redAccent,
                     ),
                   );
                 },
