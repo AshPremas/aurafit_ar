@@ -3,7 +3,6 @@ import '../../main.dart';
 import '../../models/clothing_item.dart';
 import '../../services/api_service.dart';
 
-//  ADMIN LOGIN SCREEN
 class AdminLoginScreen extends StatefulWidget {
   const AdminLoginScreen({super.key});
 
@@ -105,7 +104,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
 }
 
 
-//  ADMIN DASHBOARD SCREEN
+///  Admin Dashboard Screen
 class AdminDashboardScreen extends StatefulWidget {
   final String adminName;
   final int ownerId;
@@ -368,7 +367,7 @@ class _CatalogItemRow extends StatelessWidget {
 }
 
 
-//  ADD ITEM SCREEN
+/// Add Item Screen
 class AddItemScreen extends StatefulWidget {
   final int ownerId;
   const AddItemScreen({super.key, required this.ownerId});
@@ -524,7 +523,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
   }
 }
 
-//Shared Input Field
+// Shared Input Field
 class _InputField extends StatelessWidget {
   final TextEditingController controller;
   final String label, hint;

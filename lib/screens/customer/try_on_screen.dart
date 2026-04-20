@@ -30,7 +30,7 @@ class _TryOnScreenState extends State<TryOnScreen> {
   int _selectedCameraIndex = 1;
   String _statusMessage = 'Initializing camera...';
 
-  // ── Overlay Controls ───────────────────────────────────────────────────
+  // Overlay Controls
   double _overlayScale = 0.6;      // Zoom: 0.2 to 1.0
   double _overlayOpacity = 0.85;   // Opacity: 0.3 to 1.0
   Offset _overlayPosition = const Offset(0, 0); // Drag position
@@ -143,27 +143,27 @@ class _TryOnScreenState extends State<TryOnScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // ── Camera Feed ────────────────────────────────────────────
+          // Camera Feed
           _buildCameraFeed(),
 
-          // ── Draggable Garment Overlay ──────────────────────────────
+          // Draggable Garment Overlay
           if (_showOverlay && _isCameraInitialized)
             _buildDraggableOverlay(),
 
-          // ── Top Bar ────────────────────────────────────────────────
+          // Top Bar
           _buildTopBar(),
 
-          // ── Status Message ─────────────────────────────────────────
+          // Status Message
           _buildStatusOverlay(),
 
-          // ── Bottom Controls ────────────────────────────────────────
+          // Bottom Controls
           _buildBottomControls(),
         ],
       ),
     );
   }
 
-  // ── Top Bar ───────────────────────────────────────────────────────────────
+  // Top Bar
   Widget _buildTopBar() {
     return Positioned(
       top: 0,
@@ -201,7 +201,7 @@ class _TryOnScreenState extends State<TryOnScreen> {
     );
   }
 
-  // ── Camera Feed ───────────────────────────────────────────────────────────
+  // Camera Feed
   Widget _buildCameraFeed() {
     if (_isLoading) {
       return const Center(
@@ -219,7 +219,7 @@ class _TryOnScreenState extends State<TryOnScreen> {
     return CameraPreview(_cameraController!);
   }
 
-  // ── Draggable Garment Overlay ─────────────────────────────────────────────
+  // Draggable Garment Overlay
   Widget _buildDraggableOverlay() {
     final screenSize = MediaQuery.of(context).size;
     final centerX = screenSize.width / 2;
@@ -231,7 +231,7 @@ class _TryOnScreenState extends State<TryOnScreen> {
       top: centerY - (screenSize.width * _overlayScale / 2) +
           _overlayPosition.dy,
       child: GestureDetector(
-        // ── Drag to reposition ──────────────────────────────────────
+        // Drag to reposition
         onPanStart: (details) {
           _dragStart = details.globalPosition - _overlayPosition;
         },
@@ -253,7 +253,7 @@ class _TryOnScreenState extends State<TryOnScreen> {
     );
   }
 
-  // ── Status Overlay ────────────────────────────────────────────────────────
+  // Status Overlay
   Widget _buildStatusOverlay() {
     return Positioned(
       top: 80,
@@ -277,7 +277,7 @@ class _TryOnScreenState extends State<TryOnScreen> {
     );
   }
 
-  // ── Bottom Controls ───────────────────────────────────────────────────────
+  // Bottom Controls
   Widget _buildBottomControls() {
     return Positioned(
       bottom: 0,
@@ -299,7 +299,7 @@ class _TryOnScreenState extends State<TryOnScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
 
-            // ── Zoom Slider ──────────────────────────────────────────
+            // Zoom Slider
             if (_showOverlay) ...[
               Row(
                 children: [
@@ -321,7 +321,7 @@ class _TryOnScreenState extends State<TryOnScreen> {
                 ],
               ),
 
-              // ── Opacity Slider ─────────────────────────────────────
+              // Opacity Slider
               Row(
                 children: [
                   const Icon(Icons.opacity,
@@ -344,7 +344,7 @@ class _TryOnScreenState extends State<TryOnScreen> {
               const SizedBox(height: 8),
             ],
 
-            // ── Try-on Button ────────────────────────────────────────
+            // Try-on Button
             SizedBox(
               width: 160,
               height: 48,
@@ -364,7 +364,7 @@ class _TryOnScreenState extends State<TryOnScreen> {
             ),
             const SizedBox(height: 10),
 
-            // ── Icon Buttons Row ─────────────────────────────────────
+            // Icon Buttons Row
             Row(
               mainAxisAlignment:
                   MainAxisAlignment.spaceEvenly,
@@ -413,7 +413,7 @@ class _TryOnScreenState extends State<TryOnScreen> {
   }
 }
 
-// ─── Control Button ───────────────────────────────────────────────────────────
+// Control Button
 class _ControlButton extends StatelessWidget {
   final IconData icon;
   final String label;

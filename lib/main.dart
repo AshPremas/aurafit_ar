@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'screens/customer/splash_screen.dart';
 
 //App-Wide Color Constants 
-const Color kPrimaryDarkColor   = Color(0xFF1B2C3B); // Dark Navy (primary bg)
-const Color kAccentColor        = Color(0xFFE87E22); // Orange/Gold (buttons)
-const Color kSearchBarColor     = Color(0xFFD8D8D9); // Light Grey (search bar)
-const Color kCardBgColor        = Color(0xFF253545); // Card background
+const Color kPrimaryDarkColor   = Color(0xFF1B2C3B);
+const Color kAccentColor        = Color(0xFFE87E22);
+const Color kSearchBarColor     = Color(0xFFD8D8D9);
+const Color kCardBgColor        = Color(0xFF253545);
 const Color kTextPrimaryColor   = Colors.white;
 const Color kTextSecondaryColor = Color(0xFFAAAAAA);
 
@@ -30,7 +30,6 @@ void main() {
   runApp(const AuraFitARApp());
 }
 
-/// Configures the theme and sets [SplashScreen] as the initial route.
 class AuraFitARApp extends StatelessWidget {
   const AuraFitARApp({super.key});
 

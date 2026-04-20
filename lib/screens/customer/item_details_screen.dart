@@ -50,7 +50,7 @@ class _ItemDetailsScreenState extends State<ItemDetailsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Garment Image ────────────────────────────────────────────
+            // Garment Image
             Container(
               height: 280,
               width: double.infinity,
@@ -65,7 +65,7 @@ class _ItemDetailsScreenState extends State<ItemDetailsScreen> {
             ),
             const SizedBox(height: 16),
 
-            // ── Item Name & Price ────────────────────────────────────────
+            // Item Name & Price
             Text(
               item.name,
               style: const TextStyle(
@@ -85,14 +85,14 @@ class _ItemDetailsScreenState extends State<ItemDetailsScreen> {
             ),
             const SizedBox(height: 12),
 
-            // ── Description ──────────────────────────────────────────────
+            // Description
             Text(
               item.description,
               style: TextStyle(color: kTextSecondaryColor, fontSize: 14, height: 1.5),
             ),
             const SizedBox(height: 20),
 
-            // ── Size Selector ────────────────────────────────────────────
+            // Size Selector
             const Text(
               'Sizes:',
               style: TextStyle(
@@ -133,7 +133,7 @@ class _ItemDetailsScreenState extends State<ItemDetailsScreen> {
             ),
             const SizedBox(height: 28),
 
-            // ── Action Buttons ───────────────────────────────────────────
+            // Action Buttons
             SizedBox(
               width: double.infinity,
               height: 50,

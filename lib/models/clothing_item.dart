@@ -8,7 +8,7 @@ class ClothingItem {
   final String description;
   final List<String> sizes;
   final String imageAsset;
-  final String arOverlayAsset; // PNG with transparent bg used for AR overlay
+  final String arOverlayAsset;
   final int? wishlistId;
 
   const ClothingItem({
@@ -28,7 +28,6 @@ class ClothingItem {
 }
 
 // Mock Catalog Data (In production this data is fetched from the PostgreSQL backend.)
-
 final List<ClothingItem> mockClothingCatalog = [
   const ClothingItem(
     id: 1,

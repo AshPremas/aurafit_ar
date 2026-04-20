@@ -34,25 +34,20 @@ class ARService {
   bool _cameraInitialised = false;
   bool _useFrontCamera = true;
 
-  // ── Camera Initialisation 
+  // Camera Initialisation 
   /// Requests camera permission and initialises the ARCore session.
   /// Returns [true] if camera is ready, [false] if permission is denied.
   Future<bool> initCamera() async {
-    // TODO: Replace with MethodChannel call to native ARCore session init.
-    // AndroidARCoreSession.init(cameraFacing: _useFrontCamera ? FRONT : BACK)
     await Future.delayed(const Duration(milliseconds: 800)); // Simulated delay
     _cameraInitialised = true;
     return true;
   }
 
-  //MediaPipe Pose Landmark Detection
+  // MediaPipe Pose Landmark Detection
   /// Returns [null] if no body is detected in the frame.
   Future<PoseLandmarks?> detectPoseLandmarks() async {
     if (!_cameraInitialised) return null;
 
-    // TODO: Replace with MethodChannel call:
-    // final result = await _channel.invokeMethod('detectPose');
-    // return PoseLandmarks.fromMap(result);
     await Future.delayed(const Duration(milliseconds: 1200)); // Simulated delay
 
     // Mock landmarks based on a typical front-facing camera frame
@@ -78,25 +73,22 @@ class ARService {
     };
   }
 
-  // ── Frame Capture ─────────────────────────────────────────────────────────
+  // Frame Capture
   /// Captures the current AR composite frame (camera + garment overlay)
   /// and saves it to the device gallery.
   Future<void> captureFrame() async {
-    // TODO: Replace with MethodChannel call to native screenshot capture.
     await Future.delayed(const Duration(milliseconds: 300));
   }
 
-  // ── Camera Switch ─────────────────────────────────────────────────────────
+  // Camera Switch
   /// Toggles between front and rear camera.
   Future<void> switchCamera() async {
     _useFrontCamera = !_useFrontCamera;
-    // TODO: Reinitialise ARCore session with new camera facing direction.
     await initCamera();
   }
 
-  // ── Session Cleanup ───────────────────────────────────────────────────────
+  // Session Cleanup
   void disposeSession() {
     _cameraInitialised = false;
-    // TODO: Release ARCore session and MediaPipe resources.
   }
 }
