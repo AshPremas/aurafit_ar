@@ -35,7 +35,6 @@ class ApiService {
         throw Exception('Failed to load items');
       }
     } catch (e) {
-      // Return mock data if server not available
       print('API Error: $e — using mock data');
       return mockClothingCatalog;
     }

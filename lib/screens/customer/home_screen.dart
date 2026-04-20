@@ -30,6 +30,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String _searchQuery = '';
   List<ClothingItem> _catalogItems = [];
   bool _isLoadingItems = true;
+  bool _isOffline = false;
 
   @override
   void dispose() {
@@ -46,12 +47,21 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadItems() async {
+  try {
     final items = await ApiService.instance.fetchItems();
     setState(() {
       _catalogItems = items;
       _isLoadingItems = false;
+      _isOffline = items == mockClothingCatalog;
+    });
+  } catch (e) {
+    setState(() {
+      _catalogItems = mockClothingCatalog;
+      _isLoadingItems = false;
+      _isOffline = true;
     });
   }
+}
 
   //Filtered catalog based on selected category and search query
   List<ClothingItem> get _filteredItems {
@@ -71,6 +81,17 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: _buildAppBar(),
       body: Column(
         children: [
+          if (_isOffline)
+            Container(
+              width: double.infinity,
+              color: Colors.redAccent,
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: const Text(
+                'Server offline — showing cached data',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white, fontSize: 12),
+              ),
+            ),
           _buildSearchBar(),
           _buildCategoryChips(),
           Expanded(child: _buildProductGrid()),

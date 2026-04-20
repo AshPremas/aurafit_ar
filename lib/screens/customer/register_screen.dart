@@ -25,8 +25,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
       setState(() => _errorMessage = 'Please fill all fields');
       return;
     }
+    if (!_emailController.text.contains('@') ||
+        !_emailController.text.contains('.')) {
+      setState(() => _errorMessage = 'Please enter a valid email address');
+      return;
+    }
     if (_passwordController.text.length < 6) {
       setState(() => _errorMessage = 'Password must be at least 6 characters');
+      return;
+    }
+    if (_nameController.text.length < 2) {
+      setState(() => _errorMessage = 'Please enter your full name');
       return;
     }
 

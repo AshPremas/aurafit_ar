@@ -41,7 +41,7 @@ class _LoginScreenState extends State<LoginScreen> {
           customerEmail: result['email'],
   )));
     } else {
-      setState(() => _errorMessage = 'Invalid email or password');
+      setState(() => _errorMessage = 'Invalid email or password. Check server is running.');
     }
   }
 
