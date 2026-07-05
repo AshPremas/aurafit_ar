@@ -4,6 +4,7 @@ import '../../models/clothing_item.dart';
 import 'item_details_screen.dart';
 import 'wishlist_screen.dart';
 import '../../services/api_service.dart';
+import '../../widgets/clothing_image.dart';
 import 'profile_screen.dart';
 
 /// HomeScreen — Main catalog screen with category tabs and product grid.
@@ -263,7 +264,7 @@ class _ProductCard extends StatelessWidget {
                 child: Container(
                   color: Colors.white,
                   width: double.infinity,
-                  child: Image.asset(
+                  child: clothingImage(
                     item.imageAsset,
                     fit: BoxFit.contain,
                   ),

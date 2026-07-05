@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import '../../main.dart';
 import '../../models/clothing_item.dart';
 import '../../services/api_service.dart';
+import '../../widgets/clothing_image.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 
 class AdminLoginScreen extends StatefulWidget {
   const AdminLoginScreen({super.key});
@@ -333,7 +336,7 @@ class _CatalogItemRow extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: Image.asset(item.imageAsset,
+            child: clothingImage(item.imageAsset,
                 width: 60, height: 60, fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => Container(
                   width: 60, height: 60, color: Colors.white10,
@@ -383,12 +386,30 @@ class _AddItemScreenState extends State<AddItemScreen> {
   String? _selectedCategory;
   bool _isLoading = false;
 
+  File? _pickedImage;
+  bool _isUploading = false;
+
   final Map<String, int> _categoryIds = {
     'Tops': 1,
     'Bottoms': 2,
     'Dresses': 3,
     'Sarees': 4,
   };
+
+  Future<void> _pickImage() async {
+    try {
+      final picked = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85);
+      if (picked != null) {
+        setState(() => _pickedImage = File(picked.path));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('PICKER ERROR: $e')),
+        );
+      }
+    }
+  }
 
   Future<void> _saveItem() async {
     if (_nameController.text.isEmpty ||
@@ -402,12 +423,28 @@ class _AddItemScreenState extends State<AddItemScreen> {
 
     setState(() => _isLoading = true);
 
+    String imageUrl = 'assets/images/blackshirt.png'; // fallback stays as-is if admin skips upload
+    if (_pickedImage != null) {
+      setState(() => _isUploading = true);
+      try {
+        final uploadedUrl = await ApiService.instance.uploadImage(_pickedImage!);
+        if (uploadedUrl != null) imageUrl = uploadedUrl;
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Image upload failed: $e'), backgroundColor: Colors.redAccent),
+          );
+        }
+      }
+      setState(() => _isUploading = false);
+    }
+
     final success = await ApiService.instance.addItem(
       name: _nameController.text.trim(),
       price: double.tryParse(_priceController.text) ?? 0,
       description: _descController.text.trim(),
       sizes: 'S,M,L,XL',
-      imageUrl: 'assets/images/blackshirt.png', // default image
+      imageUrl: imageUrl,
       categoryId: _categoryIds[_selectedCategory!] ?? 1,
       ownerId: widget.ownerId,
     );
@@ -448,23 +485,34 @@ class _AddItemScreenState extends State<AddItemScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              height: 140,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                  color: kCardBgColor,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade600, width: 1.5)),
-              child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.cloud_upload_outlined,
-                        color: kAccentColor, size: 40),
-                    const SizedBox(height: 8),
-                    Text('Upload clothing image',
-                        style: TextStyle(color: kTextSecondaryColor,
-                            fontSize: 13)),
-                  ]),
+            GestureDetector(
+              onTap: _pickImage,
+              child: Container(
+                height: 140,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                    color: kCardBgColor,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade600, width: 1.5)),
+                child: _pickedImage != null
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.file(_pickedImage!,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            height: double.infinity),
+                      )
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.cloud_upload_outlined,
+                              color: kAccentColor, size: 40),
+                          const SizedBox(height: 8),
+                          Text('Upload clothing image',
+                              style: TextStyle(color: kTextSecondaryColor,
+                                  fontSize: 13)),
+                        ]),
+              ),
             ),
             const SizedBox(height: 16),
             _InputField(controller: _nameController,

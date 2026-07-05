@@ -12,6 +12,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   camera: ^0.10.5+9
   http: ^1.2.0
+  image_picker: ^1.1.2
+  http_parser: ^4.0.2
 
 dev_dependencies:
   flutter_test:
@@ -27,4 +29,3 @@ flutter:
     - assets/images/redsaree.png
     - assets/images/blackshirt.png
     - assets/images/pant.png
-

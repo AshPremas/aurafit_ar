@@ -1,6 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import '../models/clothing_item.dart';
+
 
 /// ApiService — Handles all HTTP requests to the Node.js backend connected to PostgreSQL database.
 class ApiService {
@@ -8,7 +11,7 @@ class ApiService {
   static final ApiService instance = ApiService._internal();
 
   //PC's IP address
-  static const String _baseUrl = 'http://192.168.8.184:3000/api';
+  static const String _baseUrl = 'http://10.240.117.79:3000/api';
 
   //Get All Clothing Items
   Future<List<ClothingItem>> fetchItems() async {
@@ -124,6 +127,30 @@ class ApiService {
     } catch (e) {
       print('Add item error: $e');
       return false;
+    }
+  }
+
+  // Upload Item Image (Admin)
+  Future<String?> uploadImage(File imageFile) async {
+    try {
+      final request = http.MultipartRequest('POST', Uri.parse('$_baseUrl/upload'));
+      final ext = imageFile.path.split('.').last.toLowerCase();
+      final mimeSubtype = ext == 'jpg' ? 'jpeg' : ext;
+      request.files.add(await http.MultipartFile.fromPath(
+        'image',
+        imageFile.path,
+        contentType: MediaType('image', mimeSubtype),
+      ));
+      final streamed = await request.send().timeout(const Duration(seconds: 20));
+      final response = await http.Response.fromStream(streamed);
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200 && data['success']) {
+        return data['data']['url'];
+      }
+      throw Exception(data['error'] ?? 'Upload failed (status ${response.statusCode})');
+    } catch (e) {
+      print('Upload error: $e');
+      rethrow;
     }
   }
 

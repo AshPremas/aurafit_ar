@@ -4,6 +4,7 @@ import '../../main.dart';
 import '../../models/clothing_item.dart';
 import '../../services/wishlist_service.dart';
 import '../../services/api_service.dart';
+import '../../widgets/clothing_image.dart';
 
 class TryOnScreen extends StatefulWidget {
   final ClothingItem item;
@@ -243,7 +244,7 @@ class _TryOnScreenState extends State<TryOnScreen> {
         },
         child: Opacity(
           opacity: _overlayOpacity,
-          child: Image.asset(
+          child: clothingImage(
             widget.item.arOverlayAsset,
             width: screenSize.width * _overlayScale,
             fit: BoxFit.contain,

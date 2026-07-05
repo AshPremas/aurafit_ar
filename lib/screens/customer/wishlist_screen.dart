@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../main.dart';
 import '../../models/clothing_item.dart';
 import '../../services/api_service.dart';
+import '../../widgets/clothing_image.dart';
 import 'try_on_screen.dart';
 
 class WishlistScreen extends StatefulWidget {
@@ -93,7 +94,7 @@ class _WishlistCard extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: Image.asset(item.imageAsset,
+            child: clothingImage(item.imageAsset,
                 width: 70, height: 70, fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => Container(
                   width: 70, height: 70, color: Colors.white10,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../main.dart';
 import '../../models/clothing_item.dart';
 import '../../services/api_service.dart';
+import '../../widgets/clothing_image.dart';
 import 'try_on_screen.dart';
 
 /// ItemDetailsScreen — Displays full details of a selected [ClothingItem].
@@ -58,7 +59,7 @@ class _ItemDetailsScreenState extends State<ItemDetailsScreen> {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: Image.asset(
+              child: clothingImage(
                 item.imageAsset,
                 fit: BoxFit.contain,
               ),
