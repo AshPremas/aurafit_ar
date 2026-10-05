@@ -11,7 +11,7 @@ class ApiService {
   static final ApiService instance = ApiService._internal();
 
   //PC's IP address
-  static const String _baseUrl = 'http://10.240.117.79:3000/api';
+  static const String _baseUrl = 'http://192.168.8.184:3000/api';
 
   //Get All Clothing Items
   Future<List<ClothingItem>> fetchItems() async {
