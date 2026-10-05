@@ -105,7 +105,65 @@ class _TryOnScreenState extends State<TryOnScreen> {
       });
     }
   }
-  Future<void> _processCameraImage(CameraImage image) async {}
+  
+  // Convert one camera frame into the format ML Kit expects
+  InputImage? _toInputImage(CameraImage image) {
+    final camera = _cameras[_selectedCameraIndex];
+    // Portrait-locked, so the rotation is the camera sensor orientation
+    final rotation =
+        InputImageRotationValue.fromRawValue(camera.sensorOrientation);
+    final format = InputImageFormatValue.fromRawValue(image.format.raw);
+    if (rotation == null || format == null) return null;
+    if (Platform.isAndroid && format != InputImageFormat.nv21) return null;
+    if (image.planes.length != 1) return null;
+    final plane = image.planes.first;
+    return InputImage.fromBytes(
+      bytes: plane.bytes,
+      metadata: InputImageMetadata(
+        size: Size(image.width.toDouble(), image.height.toDouble()),
+        rotation: rotation,
+        format: format,
+        bytesPerRow: plane.bytesPerRow,
+      ),
+    );
+  }
+
+  // Runs once for every camera frame
+  Future<void> _processCameraImage(CameraImage image) async {
+    if (_isDetecting) return; // still busy with the previous frame
+    _isDetecting = true;
+    try {
+      final input = _toInputImage(image);
+      if (input == null) return;
+      final poses = await _poseDetector.processImage(input);
+      if (!mounted) return;
+
+      // In portrait the camera image is rotated, so width and height swap
+      final w = image.width.toDouble();
+      final h = image.height.toDouble();
+      final rot = input.metadata!.rotation;
+      final upright = (rot == InputImageRotation.rotation90deg ||
+              rot == InputImageRotation.rotation270deg)
+          ? Size(h, w)
+          : Size(w, h);
+
+      setState(() {
+        _imageSize = upright;
+        _pose = poses.isNotEmpty ? poses.first : null;
+      });
+    } finally {
+      _isDetecting = false;
+    }
+  }
+
+  // Convert a landmark (camera image position) to a screen position
+  Offset _toScreen(PoseLandmark l, Size img, Size screen) {
+    final isFront = _cameras[_selectedCameraIndex].lensDirection ==
+        CameraLensDirection.front;
+    final x = l.x * screen.width / img.width;
+    final y = l.y * screen.height / img.height;
+    return Offset(isFront ? screen.width - x : x, y); // mirror for the front camera
+  }
 
   Future<void> _switchCamera() async {
     if (_cameras.length < 2) return;
@@ -169,6 +227,20 @@ class _TryOnScreenState extends State<TryOnScreen> {
         children: [
           // Camera Feed
           _buildCameraFeed(),
+                    // Debug: green dots on detected body points
+          if (_debugLandmarks && _pose != null && _imageSize != null)
+            IgnorePointer(
+              child: CustomPaint(
+                size: Size.infinite,
+                painter: _DotsPainter(
+                  _pose!.landmarks.values
+                      .where((l) => l.likelihood > 0.5)
+                      .map((l) => _toScreen(
+                          l, _imageSize!, MediaQuery.of(context).size))
+                      .toList(),
+                ),
+              ),
+            ),
 
           // Draggable Garment Overlay
           if (_showOverlay && _isCameraInitialized)
@@ -475,4 +547,21 @@ class _ControlButton extends StatelessWidget {
       ),
     );
   }
+}
+
+// Draws a green dot at each detected body point (debug only)
+class _DotsPainter extends CustomPainter {
+  final List<Offset> points;
+  _DotsPainter(this.points);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = Colors.greenAccent;
+    for (final p in points) {
+      canvas.drawCircle(p, 5, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DotsPainter old) => true;
 }
