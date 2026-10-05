@@ -1,3 +1,6 @@
+import 'dart:io' show Platform;
+import 'package:flutter/services.dart';
+import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import '../../main.dart';
@@ -37,9 +40,20 @@ class _TryOnScreenState extends State<TryOnScreen> {
   Offset _overlayPosition = const Offset(0, 0); // Drag position
   Offset _dragStart = Offset.zero;
 
+    // --- Pose detection ---
+  final PoseDetector _poseDetector = PoseDetector(
+    options: PoseDetectorOptions(mode: PoseDetectionMode.stream),
+  );
+  bool _isDetecting = false;   // stops frames from queuing up
+  bool _debugLandmarks = true; // shows green dots
+  Pose? _pose;                 // latest detected pose
+  Size? _imageSize;            // size of the camera image
+  Rect? _autoRect;             // garment box calculated from landmarks
+
   @override
   void initState() {
     super.initState();
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     _initCamera();
   }
 
@@ -68,11 +82,15 @@ class _TryOnScreenState extends State<TryOnScreen> {
   Future<void> _startCamera(int index) async {
     _cameraController = CameraController(
       _cameras[index],
-      ResolutionPreset.high,
+      ResolutionPreset.medium,
       enableAudio: false,
+      imageFormatGroup: Platform.isAndroid
+          ? ImageFormatGroup.nv21
+          : ImageFormatGroup.bgra8888,
     );
     try {
       await _cameraController!.initialize();
+      await _cameraController!.startImageStream(_processCameraImage);
       if (mounted) {
         setState(() {
           _isCameraInitialized = true;
@@ -87,10 +105,14 @@ class _TryOnScreenState extends State<TryOnScreen> {
       });
     }
   }
+  Future<void> _processCameraImage(CameraImage image) async {}
 
   Future<void> _switchCamera() async {
     if (_cameras.length < 2) return;
     setState(() => _isLoading = true);
+    if (_cameraController?.value.isStreamingImages ?? false) {
+      await _cameraController!.stopImageStream();
+    }
     await _cameraController?.dispose();
     _selectedCameraIndex =
         (_selectedCameraIndex + 1) % _cameras.length;
@@ -134,6 +156,7 @@ class _TryOnScreenState extends State<TryOnScreen> {
   @override
   void dispose() {
     _cameraController?.dispose();
+      _poseDetector.close();
     super.dispose();
   }
 
