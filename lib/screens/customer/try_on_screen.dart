@@ -150,6 +150,7 @@ class _TryOnScreenState extends State<TryOnScreen> {
       setState(() {
         _imageSize = upright;
         _pose = poses.isNotEmpty ? poses.first : null;
+        if (_pose != null && _showOverlay) _updateAutoRect(_pose!, upright);
       });
     } finally {
       _isDetecting = false;
@@ -163,6 +164,40 @@ class _TryOnScreenState extends State<TryOnScreen> {
     final x = l.x * screen.width / img.width;
     final y = l.y * screen.height / img.height;
     return Offset(isFront ? screen.width - x : x, y); // mirror for the front camera
+  }
+  // Screen position of a body point, or null if the model isn't confident
+  Offset? _pt(Pose pose, PoseLandmarkType type, Size img, Size screen) {
+    final l = pose.landmarks[type];
+    if (l == null || l.likelihood < 0.5) return null;
+    return _toScreen(l, img, screen);
+  }
+
+  // Works out where the garment should go, from the body points
+  void _updateAutoRect(Pose pose, Size img) {
+    final screen = MediaQuery.of(context).size;
+    final ls = _pt(pose, PoseLandmarkType.leftShoulder, img, screen);
+    final rs = _pt(pose, PoseLandmarkType.rightShoulder, img, screen);
+    final lh = _pt(pose, PoseLandmarkType.leftHip, img, screen);
+    final rh = _pt(pose, PoseLandmarkType.rightHip, img, screen);
+
+    double width, top, centerX;
+    switch (widget.item.category) {
+      case 'Bottoms': // anchored to the hips
+        if (lh == null || rh == null) return;
+        width = (lh - rh).distance * 2.0;               // TUNE
+        centerX = (lh.dx + rh.dx) / 2;
+        top = (lh.dy + rh.dy) / 2 - width * 0.1;        // TUNE
+        break;
+      default: // Tops, Dresses, Sarees: anchored to the shoulders
+        if (ls == null || rs == null) return;
+        width = (ls - rs).distance * 1.8;               // TUNE
+        centerX = (ls.dx + rs.dx) / 2;
+        top = (ls.dy + rs.dy) / 2 - width * 0.12;       // TUNE
+    }
+
+    final target = Rect.fromLTWH(centerX - width / 2, top, width, width);
+    // Smoothing so the garment doesn't shake (0.3 = smooth, 0.6 = faster)
+    _autoRect = _autoRect == null ? target : Rect.lerp(_autoRect, target, 0.3);
   }
 
   Future<void> _switchCamera() async {
@@ -182,6 +217,7 @@ class _TryOnScreenState extends State<TryOnScreen> {
       _showOverlay = !_showOverlay;
       // Reset position when toggling
       _overlayPosition = const Offset(0, 0);
+      _autoRect = null; // start fresh each time
       _statusMessage = _showOverlay
           ? 'Drag to reposition • Use slider to resize'
           : 'Tap "Try-on" to overlay garment';
@@ -320,12 +356,22 @@ class _TryOnScreenState extends State<TryOnScreen> {
     final screenSize = MediaQuery.of(context).size;
     final centerX = screenSize.width / 2;
     final centerY = screenSize.height / 2;
+    final auto = _autoRect; // position calculated from the body points
+
+    // Use the body-based position when available, else the old centred one
+    final garmentWidth = auto != null
+        ? auto.width * (_overlayScale / 0.6)   // slider 0.6 = exactly as detected
+        : screenSize.width * _overlayScale;
+    final garmentLeft = auto != null
+        ? auto.center.dx - garmentWidth / 2 + _overlayPosition.dx
+        : centerX - (screenSize.width * _overlayScale / 2) + _overlayPosition.dx;
+    final garmentTop = auto != null
+        ? auto.top + _overlayPosition.dy
+        : centerY - (screenSize.width * _overlayScale / 2) + _overlayPosition.dy;
 
     return Positioned(
-      left: centerX - (screenSize.width * _overlayScale / 2) +
-          _overlayPosition.dx,
-      top: centerY - (screenSize.width * _overlayScale / 2) +
-          _overlayPosition.dy,
+      left: garmentLeft,
+      top: garmentTop,
       child: GestureDetector(
         // Drag to reposition
         onPanStart: (details) {
@@ -333,15 +379,14 @@ class _TryOnScreenState extends State<TryOnScreen> {
         },
         onPanUpdate: (details) {
           setState(() {
-            _overlayPosition =
-                details.globalPosition - _dragStart;
+            _overlayPosition = details.globalPosition - _dragStart;
           });
         },
         child: Opacity(
           opacity: _overlayOpacity,
           child: clothingImage(
             widget.item.arOverlayAsset,
-            width: screenSize.width * _overlayScale,
+            width: garmentWidth,
             fit: BoxFit.contain,
           ),
         ),
