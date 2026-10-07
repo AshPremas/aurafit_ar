@@ -48,7 +48,8 @@ class _TryOnScreenState extends State<TryOnScreen> {
   bool _debugLandmarks = true; // shows green dots
   Pose? _pose;                 // latest detected pose
   Size? _imageSize;            // size of the camera image
-  Rect? _autoRect;             // garment box calculated from landmarks
+  Rect? _autoRect;
+  double? _autoHeight;         // garment height for Tops, from the torso
 
   @override
   void initState() {
@@ -181,6 +182,7 @@ class _TryOnScreenState extends State<TryOnScreen> {
     final rh = _pt(pose, PoseLandmarkType.rightHip, img, screen);
 
     double width, top, centerX;
+    double? stretchH; // only set for Tops when the hips are visible
     switch (widget.item.category) {
       case 'Bottoms': // anchored to the hips
         if (lh == null || rh == null) return;
@@ -190,14 +192,24 @@ class _TryOnScreenState extends State<TryOnScreen> {
         break;
       default: // Tops, Dresses, Sarees: anchored to the shoulders
         if (ls == null || rs == null) return;
-        width = (ls - rs).distance * 1.8;               // TUNE
-        centerX = (ls.dx + rs.dx) / 2;
-        top = (ls.dy + rs.dy) / 2 - width * 0.12;       // TUNE
+        width = (ls - rs).distance * 2.6;               // TUNE
+        centerX = (ls.dx + rs.dx) / 2;   // TUNE (shift right)
+        top = (ls.dy + rs.dy) / 2 - width * 0.24;       // TUNE
+        // Tops only: stretch the length down to the hips when they are visible
+        if (widget.item.category == 'Tops' && lh != null && rh != null) {
+          final hipY = (lh.dy + rh.dy) / 2;
+          stretchH = (hipY - top) * 1.1;                // TUNE
+        }
     }
 
     final target = Rect.fromLTWH(centerX - width / 2, top, width, width);
     // Smoothing so the garment doesn't shake (0.3 = smooth, 0.6 = faster)
     _autoRect = _autoRect == null ? target : Rect.lerp(_autoRect, target, 0.3);
+    _autoHeight = stretchH == null
+        ? null
+        : (_autoHeight == null
+            ? stretchH
+            : _autoHeight! + 0.3 * (stretchH - _autoHeight!)); // smoothed
   }
 
   Future<void> _switchCamera() async {
@@ -218,6 +230,7 @@ class _TryOnScreenState extends State<TryOnScreen> {
       // Reset position when toggling
       _overlayPosition = const Offset(0, 0);
       _autoRect = null; // start fresh each time
+      _autoHeight = null;
       _statusMessage = _showOverlay
           ? 'Drag to reposition • Use slider to resize'
           : 'Tap "Try-on" to overlay garment';
@@ -387,7 +400,13 @@ class _TryOnScreenState extends State<TryOnScreen> {
           child: clothingImage(
             widget.item.arOverlayAsset,
             width: garmentWidth,
-            fit: BoxFit.contain,
+            // Tops with hips visible: stretch to the torso length, else keep the shape
+            height: (_autoHeight != null && auto != null)
+                ? _autoHeight! * (_overlayScale / 0.6)
+                : null,
+            fit: (_autoHeight != null && auto != null)
+                ? BoxFit.fill
+                : BoxFit.contain,
           ),
         ),
       ),
