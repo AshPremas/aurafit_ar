@@ -198,7 +198,7 @@ class _TryOnScreenState extends State<TryOnScreen> {
       case 'Bottoms': // anchored to the hips, stretched down to the ankles
         if (lh == null || rh == null) return;
         final hipW = (lh - rh).distance;
-        width = hipW * 6.0;                             // TUNE
+        width = hipW * 6.3;                             // TUNE
         centerX = (lh.dx + rh.dx) / 2;
         top = hipY! - hipW * 1.4;                      // TUNE (waistline)
         if (ankleY != null) {
