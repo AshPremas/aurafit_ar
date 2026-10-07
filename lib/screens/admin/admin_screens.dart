@@ -435,6 +435,8 @@ class _AddItemScreenState extends State<AddItemScreen> {
             SnackBar(content: Text('Image upload failed: $e'), backgroundColor: Colors.redAccent),
           );
         }
+        setState(() { _isLoading = false; _isUploading = false; });
+        return; // don't save the item without its image
       }
       setState(() => _isUploading = false);
     }

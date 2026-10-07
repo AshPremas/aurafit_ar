@@ -13,6 +13,17 @@ class ApiService {
   //PC's IP address
   static const String _baseUrl = 'http://192.168.8.184:3000/api';
 
+  // Server address without "/api" (used for uploaded images)
+  static String get _serverUrl => _baseUrl.replaceFirst(RegExp(r'/api$'), '');
+
+  // Repairs image links saved with an old IP; bundled assets are left alone
+  static String resolveImage(String? s) {
+    if (s == null || s.isEmpty) return 'assets/images/blackshirt.png';
+    final i = s.indexOf('/uploads/');
+    if (s.startsWith('assets/') || i < 0) return s;
+    return _serverUrl + s.substring(i);
+  }
+
   //Get All Clothing Items
   Future<List<ClothingItem>> fetchItems() async {
     try {
@@ -31,8 +42,8 @@ class ApiService {
           category: item['category_name'],
           description: item['description'] ?? '',
           sizes: item['sizes'].toString().split(','),
-          imageAsset: item['image_url'],
-          arOverlayAsset: item['ar_overlay_url'],
+          imageAsset: resolveImage(item['image_url']),
+          arOverlayAsset: resolveImage(item['ar_overlay_url'] ?? item['image_url']),
         )).toList();
       } else {
         throw Exception('Failed to load items');
@@ -61,8 +72,8 @@ class ApiService {
           category: item['category_name'],
           description: item['description'] ?? '',
           sizes: item['sizes'].toString().split(','),
-          imageAsset: item['image_url'],
-          arOverlayAsset: item['ar_overlay_url'],
+          imageAsset: resolveImage(item['image_url']),
+          arOverlayAsset: resolveImage(item['ar_overlay_url'] ?? item['image_url']),
         )).toList();
       }
       return [];
@@ -145,7 +156,9 @@ class ApiService {
       final response = await http.Response.fromStream(streamed);
       final data = jsonDecode(response.body);
       if (response.statusCode == 200 && data['success']) {
-        return data['data']['url'];
+        final u = data['data']['url'] as String;
+        final i = u.indexOf('/uploads/');
+        return i >= 0 ? u.substring(i) : u; // saves only "/uploads/xyz.png"
       }
       throw Exception(data['error'] ?? 'Upload failed (status ${response.statusCode})');
     } catch (e) {
@@ -259,8 +272,8 @@ class ApiService {
           category: '',
           description: '',
           sizes: ['S', 'M', 'L', 'XL'],
-          imageAsset: item['image_url'] ?? 'assets/images/blackshirt.png',
-          arOverlayAsset: item['image_url'] ?? 'assets/images/blackshirt.png',
+          imageAsset: resolveImage(item['image_url']),
+          arOverlayAsset: resolveImage(item['image_url']),
           wishlistId: item['wishlist_id'],
         )).toList();
       }
