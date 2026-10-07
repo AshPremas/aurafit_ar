@@ -173,6 +173,12 @@ class _TryOnScreenState extends State<TryOnScreen> {
     return _toScreen(l, img, screen);
   }
 
+  // Average height (y) of a left/right pair; uses one side if only one is visible
+  double? _midY(Offset? a, Offset? b) {
+    if (a != null && b != null) return (a.dy + b.dy) / 2;
+    return a?.dy ?? b?.dy;
+  }
+
   // Works out where the garment should go, from the body points
   void _updateAutoRect(Pose pose, Size img) {
     final screen = MediaQuery.of(context).size;
@@ -180,27 +186,45 @@ class _TryOnScreenState extends State<TryOnScreen> {
     final rs = _pt(pose, PoseLandmarkType.rightShoulder, img, screen);
     final lh = _pt(pose, PoseLandmarkType.leftHip, img, screen);
     final rh = _pt(pose, PoseLandmarkType.rightHip, img, screen);
+    final hipY = _midY(lh, rh);
+    final kneeY = _midY(_pt(pose, PoseLandmarkType.leftKnee, img, screen),
+        _pt(pose, PoseLandmarkType.rightKnee, img, screen));
+    final ankleY = _midY(_pt(pose, PoseLandmarkType.leftAnkle, img, screen),
+        _pt(pose, PoseLandmarkType.rightAnkle, img, screen));
 
     double width, top, centerX;
-    double? stretchH; // only set for Tops when the hips are visible
+    double? stretchH; // set only when the body points for this garment are visible
     switch (widget.item.category) {
-      case 'Bottoms': // anchored to the hips
+      case 'Bottoms': // anchored to the hips, stretched down to the ankles
         if (lh == null || rh == null) return;
-        width = (lh - rh).distance * 2.0;               // TUNE
+        final hipW = (lh - rh).distance;
+        width = hipW * 6.0;                             // TUNE
         centerX = (lh.dx + rh.dx) / 2;
-        top = (lh.dy + rh.dy) / 2 - width * 0.1;        // TUNE
+        top = hipY! - hipW * 1.4;                      // TUNE (waistline)
+        if (ankleY != null) {
+          stretchH = (ankleY - top) * 1.15;             // TUNE
+        } else if (kneeY != null) {
+          stretchH = (kneeY - top) * 2.0;               // TUNE
+        }
         break;
       default: // Tops, Dresses, Sarees: anchored to the shoulders
         if (ls == null || rs == null) return;
-        width = (ls - rs).distance * 2.6;               // TUNE
-        centerX = (ls.dx + rs.dx) / 2;   // TUNE (shift right)
+        final cat = widget.item.category;
+        final widthK = cat == 'Dresses' ? 2.4 : (cat == 'Sarees' ? 2.9 : 2.6);      // TUNE
+        final shiftK = cat == 'Dresses' ? -0.02 : (cat == 'Sarees' ? -0.04 : 0.0);  // TUNE
+        width = (ls - rs).distance * widthK;
+        centerX = (ls.dx + rs.dx) / 2 + width * shiftK;
         top = (ls.dy + rs.dy) / 2 - width * 0.24;       // TUNE
-        // Tops only: stretch the length down to the hips when they are visible
-        if (widget.item.category == 'Tops' && lh != null && rh != null) {
-          final hipY = (lh.dy + rh.dy) / 2;
-          stretchH = (hipY - top) * 1.1;                // TUNE
+        if (widget.item.category == 'Tops' && hipY != null) {
+          stretchH = (hipY - top) * 1.1;                // TUNE (down to hips)
+        } else if (widget.item.category == 'Dresses' && kneeY != null) {
+          stretchH = (kneeY - top) * 0.95;              // TUNE (down to knees)
+        } else if (widget.item.category == 'Sarees' && ankleY != null) {
+          stretchH = (ankleY - top) * 1.0;              // TUNE (down to ankles)
         }
     }
+
+    debugPrint('hipY=$hipY kneeY=$kneeY ankleY=$ankleY stretchH=$stretchH');
 
     final target = Rect.fromLTWH(centerX - width / 2, top, width, width);
     // Smoothing so the garment doesn't shake (0.3 = smooth, 0.6 = faster)
