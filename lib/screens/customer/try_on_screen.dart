@@ -8,6 +8,9 @@ import '../../models/clothing_item.dart';
 import '../../services/wishlist_service.dart';
 import '../../services/api_service.dart';
 import '../../widgets/clothing_image.dart';
+import 'dart:ui' as ui;
+import 'package:flutter/rendering.dart';
+import 'package:gal/gal.dart';
 
 class TryOnScreen extends StatefulWidget {
   final ClothingItem item;
@@ -47,6 +50,7 @@ class _TryOnScreenState extends State<TryOnScreen> {
   bool _isDetecting = false;   // stops frames from queuing up
   bool _debugLandmarks = true; // shows green dots
   Pose? _pose;                 // latest detected pose
+    final GlobalKey _captureKey = GlobalKey(); // marks the area saved as the screenshot
   Size? _imageSize;            // size of the camera image
   Rect? _autoRect;
   double? _autoHeight;         // garment height for Tops, from the torso
@@ -262,22 +266,25 @@ class _TryOnScreenState extends State<TryOnScreen> {
   }
 
   Future<void> _captureScreenshot() async {
-    if (_cameraController == null ||
-        !_cameraController!.value.isInitialized) return;
     try {
-      final image = await _cameraController!.takePicture();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Saved: ${image.path}'),
-            backgroundColor: kAccentColor,
-          ),
-        );
-      }
-    } catch (e) {
+      final boundary = _captureKey.currentContext!.findRenderObject()
+          as RenderRepaintBoundary;
+      final image = await boundary.toImage(pixelRatio: 2.0);
+      final data = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (data == null) return;
+      await Gal.putImageBytes(data.buffer.asUint8List());
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed: $e'),
+          content: const Text('Saved to your gallery'),
+          backgroundColor: kAccentColor,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not save: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -298,26 +305,36 @@ class _TryOnScreenState extends State<TryOnScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Camera Feed
-          _buildCameraFeed(),
-                    // Debug: green dots on detected body points
-          if (_debugLandmarks && _pose != null && _imageSize != null)
-            IgnorePointer(
-              child: CustomPaint(
-                size: Size.infinite,
-                painter: _DotsPainter(
-                  _pose!.landmarks.values
-                      .where((l) => l.likelihood > 0.5)
-                      .map((l) => _toScreen(
-                          l, _imageSize!, MediaQuery.of(context).size))
-                      .toList(),
-                ),
-              ),
-            ),
+          // Camera + dots + garment (this area is saved by the screenshot button)
+          RepaintBoundary(
+            key: _captureKey,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // Camera Feed
+                _buildCameraFeed(),
 
-          // Draggable Garment Overlay
-          if (_showOverlay && _isCameraInitialized)
-            _buildDraggableOverlay(),
+                // Debug: green dots on detected body points
+                if (_debugLandmarks && _pose != null && _imageSize != null)
+                  IgnorePointer(
+                    child: CustomPaint(
+                      size: Size.infinite,
+                      painter: _DotsPainter(
+                        _pose!.landmarks.values
+                            .where((l) => l.likelihood > 0.5)
+                            .map((l) => _toScreen(
+                                l, _imageSize!, MediaQuery.of(context).size))
+                            .toList(),
+                      ),
+                    ),
+                  ),
+
+                // Draggable Garment Overlay
+                if (_showOverlay && _isCameraInitialized)
+                  _buildDraggableOverlay(),
+              ],
+            ),
+          ),
 
           // Top Bar
           _buildTopBar(),
